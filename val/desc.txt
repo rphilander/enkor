@@ -1,0 +1,1 @@
+Core value type for enkor. A tagged union representing nil, bool, int, float, string, symbol, keyword, list, and map. All values are immutable and reference-counted.

@@ -1,0 +1,6 @@
+# Build artifacts
+build
+*/test_main.c
+*/test_*[!.c]
+*.o
+*.dSYM/
