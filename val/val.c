@@ -15,6 +15,7 @@ struct Val {
         struct { char *data; size_t len; } string;
         struct { Val **items; size_t len; } list;
         struct { Val **keys; Val **vals; size_t cap; size_t len; } map;
+        struct { char *name; BuiltinFn fn; } builtin;
     } as;
 };
 
@@ -74,6 +75,12 @@ static uint64_t compute_hash(const Val *v) {
     case VAL_ERROR: {
         uint64_t sh = hash_bytes(v->as.string.data, v->as.string.len);
         h = hash_combine(h, sh);
+        break;
+    }
+    case VAL_BUILTIN: {
+        size_t nlen = strlen(v->as.builtin.name);
+        uint64_t nh = hash_bytes(v->as.builtin.name, nlen);
+        h = hash_combine(h, nh);
         break;
     }
     case VAL_LIST:
@@ -182,6 +189,18 @@ Val *val_error(const char *message) {
     return v;
 }
 
+Val *val_builtin(const char *name, BuiltinFn fn) {
+    assert(fn != NULL);
+    Val *v = val_alloc(VAL_BUILTIN);
+    size_t len = strlen(name);
+    v->as.builtin.name = malloc(len + 1);
+    assert(v->as.builtin.name != NULL);
+    memcpy(v->as.builtin.name, name, len + 1);
+    v->as.builtin.fn = fn;
+    v->hash_val = compute_hash(v);
+    return v;
+}
+
 Val *val_list(Val **items, size_t len) {
     Val *v = val_alloc(VAL_LIST);
     if (len > 0) {
@@ -260,6 +279,9 @@ void val_release(Val *v) {
     case VAL_KEYWORD:
     case VAL_ERROR:
         free(v->as.string.data);
+        break;
+    case VAL_BUILTIN:
+        free(v->as.builtin.name);
         break;
     case VAL_LIST:
         for (size_t i = 0; i < v->as.list.len; i++) {
@@ -374,6 +396,11 @@ int val_cmp(const Val *a, const Val *b) {
         return 0;
     }
 
+    case VAL_BUILTIN: {
+        int c = strcmp(a->as.builtin.name, b->as.builtin.name);
+        return c < 0 ? -1 : c > 0 ? 1 : 0;
+    }
+
     case VAL_MAP: {
         if (a->as.map.len != b->as.map.len) {
             return a->as.map.len < b->as.map.len ? -1 : 1;
@@ -442,6 +469,16 @@ const char *val_as_keyword(const Val *v) {
 const char *val_as_error(const Val *v) {
     assert(v != NULL && v->type == VAL_ERROR);
     return v->as.string.data;
+}
+
+const char *val_as_builtin_name(const Val *v) {
+    assert(v != NULL && v->type == VAL_BUILTIN);
+    return v->as.builtin.name;
+}
+
+BuiltinFn val_as_builtin(const Val *v) {
+    assert(v != NULL && v->type == VAL_BUILTIN);
+    return v->as.builtin.fn;
 }
 
 /* --- Collections --- */

@@ -16,9 +16,13 @@ typedef enum {
     VAL_LIST,
     VAL_MAP,
     VAL_ERROR,
+    VAL_BUILTIN,
 } ValType;
 
 typedef struct Val Val;
+
+/* Function pointer type for builtin functions */
+typedef Val *(*BuiltinFn)(Val **args, size_t argc);
 
 /* Constructors */
 Val *val_nil(void);
@@ -31,6 +35,7 @@ Val *val_keyword(const char *name);
 Val *val_list(Val **items, size_t len);
 Val *val_map(Val **keys, Val **vals, size_t len);
 Val *val_error(const char *message);
+Val *val_builtin(const char *name, BuiltinFn fn);
 
 /* Memory management */
 Val *val_retain(Val *v);
@@ -52,6 +57,8 @@ const char *val_as_string(const Val *v, size_t *len);
 const char *val_as_symbol(const Val *v);
 const char *val_as_keyword(const Val *v);
 const char *val_as_error(const Val *v);
+const char *val_as_builtin_name(const Val *v);
+BuiltinFn val_as_builtin(const Val *v);
 
 /*
  * Collections.
