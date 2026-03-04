@@ -4,12 +4,12 @@ All data in enkor is represented by `Val`, an opaque, immutable, reference-count
 
 ## Types
 
-There are 9 value types, represented by the `ValType` enum:
+There are 10 value types, represented by the `ValType` enum:
 
 ```c
 VAL_NIL, VAL_BOOL, VAL_INT, VAL_FLOAT,
 VAL_STRING, VAL_SYMBOL, VAL_KEYWORD,
-VAL_LIST, VAL_MAP
+VAL_LIST, VAL_MAP, VAL_ERROR
 ```
 
 Check a value's type with `val_type(v)`:
@@ -32,6 +32,7 @@ Val *f = val_float(3.14);
 Val *s = val_string("hello", 5);    /* data + byte length */
 Val *sym = val_symbol("foo");        /* null-terminated name */
 Val *kw = val_keyword("bar");        /* null-terminated name */
+Val *e = val_error("something went wrong");  /* error message */
 ```
 
 Lists take an array of existing `Val *` pointers. The list retains each element:
@@ -86,6 +87,7 @@ double val_as_float(const Val *v);
 const char *val_as_string(const Val *v, size_t *len);  /* writes byte length to *len */
 const char *val_as_symbol(const Val *v);                /* null-terminated */
 const char *val_as_keyword(const Val *v);               /* null-terminated */
+const char *val_as_error(const Val *v);                 /* null-terminated */
 ```
 
 Returned `const char *` pointers are non-owning. Do not free them.
@@ -125,7 +127,7 @@ uint64_t val_hash(const Val *v);
 
 `val_cmp` defines a total order over all values. It returns negative, zero, or positive. Two values are equal if and only if `val_cmp` returns 0.
 
-**Cross-type ordering:** Types are ordered by their enum value: NIL < BOOL < INT < FLOAT < STRING < SYMBOL < KEYWORD < LIST < MAP. Values of different types are never equal.
+**Cross-type ordering:** Types are ordered by their enum value: NIL < BOOL < INT < FLOAT < STRING < SYMBOL < KEYWORD < LIST < MAP < ERROR. Values of different types are never equal.
 
 **Within-type ordering:**
 - NIL: all nils are equal.
@@ -137,3 +139,14 @@ uint64_t val_hash(const Val *v);
 - MAP: compare by length first, then by sorted entries (key first, then value).
 
 **Hash contract:** Equal values always have equal hashes. The hash is precomputed at creation time and returned by `val_hash`.
+
+## Errors
+
+Errors are values that carry an error message string. They are the runtime representation of exceptions and are returned by functions that can fail (e.g. parsing invalid input).
+
+```c
+Val *e = val_error("unexpected end of input");
+const char *msg = val_as_error(e);  /* "unexpected end of input" */
+```
+
+Check for errors with `val_type(v) == VAL_ERROR`. Errors participate in comparison and hashing like all other values — two errors with the same message are equal, and errors sort after MAP in the type ordering.

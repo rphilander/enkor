@@ -88,6 +88,7 @@ static inline const char *_test_type_name(ValType t) {
     case VAL_KEYWORD: return "KEYWORD";
     case VAL_LIST:    return "LIST";
     case VAL_MAP:     return "MAP";
+    case VAL_ERROR:   return "ERROR";
     }
     return "???";
 }

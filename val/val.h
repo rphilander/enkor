@@ -15,6 +15,7 @@ typedef enum {
     VAL_KEYWORD,
     VAL_LIST,
     VAL_MAP,
+    VAL_ERROR,
 } ValType;
 
 typedef struct Val Val;
@@ -29,6 +30,7 @@ Val *val_symbol(const char *name);
 Val *val_keyword(const char *name);
 Val *val_list(Val **items, size_t len);
 Val *val_map(Val **keys, Val **vals, size_t len);
+Val *val_error(const char *message);
 
 /* Memory management */
 Val *val_retain(Val *v);
@@ -49,6 +51,7 @@ double val_as_float(const Val *v);
 const char *val_as_string(const Val *v, size_t *len);
 const char *val_as_symbol(const Val *v);
 const char *val_as_keyword(const Val *v);
+const char *val_as_error(const Val *v);
 
 /*
  * Collections.

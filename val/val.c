@@ -70,7 +70,8 @@ static uint64_t compute_hash(const Val *v) {
     }
     case VAL_STRING:
     case VAL_SYMBOL:
-    case VAL_KEYWORD: {
+    case VAL_KEYWORD:
+    case VAL_ERROR: {
         uint64_t sh = hash_bytes(v->as.string.data, v->as.string.len);
         h = hash_combine(h, sh);
         break;
@@ -170,6 +171,17 @@ Val *val_keyword(const char *name) {
     return v;
 }
 
+Val *val_error(const char *message) {
+    Val *v = val_alloc(VAL_ERROR);
+    size_t len = strlen(message);
+    v->as.string.data = malloc(len + 1);
+    assert(v->as.string.data != NULL);
+    memcpy(v->as.string.data, message, len + 1);
+    v->as.string.len = len;
+    v->hash_val = compute_hash(v);
+    return v;
+}
+
 Val *val_list(Val **items, size_t len) {
     Val *v = val_alloc(VAL_LIST);
     if (len > 0) {
@@ -246,6 +258,7 @@ void val_release(Val *v) {
     case VAL_STRING:
     case VAL_SYMBOL:
     case VAL_KEYWORD:
+    case VAL_ERROR:
         free(v->as.string.data);
         break;
     case VAL_LIST:
@@ -338,7 +351,8 @@ int val_cmp(const Val *a, const Val *b) {
 
     case VAL_STRING:
     case VAL_SYMBOL:
-    case VAL_KEYWORD: {
+    case VAL_KEYWORD:
+    case VAL_ERROR: {
         size_t min_len = a->as.string.len < b->as.string.len
                        ? a->as.string.len : b->as.string.len;
         int c = memcmp(a->as.string.data, b->as.string.data, min_len);
@@ -422,6 +436,11 @@ const char *val_as_symbol(const Val *v) {
 
 const char *val_as_keyword(const Val *v) {
     assert(v != NULL && v->type == VAL_KEYWORD);
+    return v->as.string.data;
+}
+
+const char *val_as_error(const Val *v) {
+    assert(v != NULL && v->type == VAL_ERROR);
     return v->as.string.data;
 }
 

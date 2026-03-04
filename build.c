@@ -8,6 +8,7 @@
 
 #define MAX_TESTS 256
 #define MAX_PATH  512
+#define MAX_DEPS  32
 
 static int ends_with(const char *s, const char *suffix) {
     size_t slen = strlen(s), suflen = strlen(suffix);
@@ -165,6 +166,30 @@ static int glob_sources(const char *concept, char sources[][MAX_PATH], int max) 
     return count;
 }
 
+/* Read deps.txt: one dependency name per line */
+static int read_deps(const char *concept, char deps[][MAX_PATH], int max) {
+    char path[MAX_PATH];
+    snprintf(path, sizeof(path), "%s/deps.txt", concept);
+
+    FILE *f = fopen(path, "r");
+    if (!f) return 0;
+
+    int count = 0;
+    char line[MAX_PATH];
+    while (fgets(line, sizeof(line), f) && count < max) {
+        size_t len = strlen(line);
+        while (len > 0 && (line[len-1] == '\n' || line[len-1] == '\r'))
+            line[--len] = '\0';
+        if (len > 0) {
+            strncpy(deps[count], line, MAX_PATH - 1);
+            deps[count][MAX_PATH - 1] = '\0';
+            count++;
+        }
+    }
+    fclose(f);
+    return count;
+}
+
 static int cmd_test(const char *concept) {
     char tests[MAX_TESTS][MAX_PATH];
     int test_count = glob_tests(concept, tests, MAX_TESTS);
@@ -176,27 +201,46 @@ static int cmd_test(const char *concept) {
 
     printf("Found %d tests in %s/\n\n", test_count, concept);
 
+    /* Read dependencies */
+    char deps[MAX_DEPS][MAX_PATH];
+    int dep_count = read_deps(concept, deps, MAX_DEPS);
+
     /* Generate test_main.c */
     if (generate_test_main(concept, tests, test_count) != 0) return 1;
 
     /* Build compile command */
     char cmd[4096];
-    int pos = snprintf(cmd, sizeof(cmd),
-        "cc -std=c11 -Wall -Wextra -I%s -I. ", concept);
+    int pos = snprintf(cmd, sizeof(cmd), "cc -std=c11 -Wall -Wextra ");
 
-    /* Add source files */
+    /* Include paths: concept dir, each dep dir, project root */
+    pos += snprintf(cmd + pos, sizeof(cmd) - pos, "-I%s ", concept);
+    for (int i = 0; i < dep_count; i++) {
+        pos += snprintf(cmd + pos, sizeof(cmd) - pos, "-I%s ", deps[i]);
+    }
+    pos += snprintf(cmd + pos, sizeof(cmd) - pos, "-I. ");
+
+    /* Dependency source files */
+    for (int i = 0; i < dep_count; i++) {
+        char dep_src[MAX_TESTS][MAX_PATH];
+        int n = glob_sources(deps[i], dep_src, MAX_TESTS);
+        for (int j = 0; j < n; j++) {
+            pos += snprintf(cmd + pos, sizeof(cmd) - pos, "%s ", dep_src[j]);
+        }
+    }
+
+    /* Concept source files */
     char sources[MAX_TESTS][MAX_PATH];
     int src_count = glob_sources(concept, sources, MAX_TESTS);
     for (int i = 0; i < src_count; i++) {
         pos += snprintf(cmd + pos, sizeof(cmd) - pos, "%s ", sources[i]);
     }
 
-    /* Add test files */
+    /* Test files */
     for (int i = 0; i < test_count; i++) {
         pos += snprintf(cmd + pos, sizeof(cmd) - pos, "%s/%s ", concept, tests[i]);
     }
 
-    /* Add generated test_main.c and output */
+    /* Generated test_main.c and output */
     snprintf(cmd + pos, sizeof(cmd) - pos,
         "%s/test_main.c -o %s/test_%s -lm", concept, concept, concept);
 
