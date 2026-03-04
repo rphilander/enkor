@@ -110,7 +110,12 @@ static int generate_test_main(const char *concept, char tests[][MAX_PATH], int c
     fprintf(f, "    for (int i = 0; i < n; i++) {\n");
     fprintf(f, "        fflush(stdout);\n");
     fprintf(f, "        pid_t pid = fork();\n");
+    fprintf(f, "        /* Capture stderr to a temp file */\n");
+    fprintf(f, "        char errpath[] = \"/tmp/enkor_test_XXXXXX\";\n");
+    fprintf(f, "        int errfd = mkstemp(errpath);\n");
     fprintf(f, "        if (pid == 0) {\n");
+    fprintf(f, "            dup2(errfd, 2);\n");
+    fprintf(f, "            close(errfd);\n");
     fprintf(f, "            all[i].fn();\n");
     fprintf(f, "            _exit(0);\n");
     fprintf(f, "        }\n");
@@ -123,8 +128,16 @@ static int generate_test_main(const char *concept, char tests[][MAX_PATH], int c
     fprintf(f, "            passed++;\n");
     fprintf(f, "        } else {\n");
     fprintf(f, "            printf(\"  FAIL  %%s\\n\", all[i].name);\n");
+    fprintf(f, "            /* Dump captured stderr on failure */\n");
+    fprintf(f, "            lseek(errfd, 0, SEEK_SET);\n");
+    fprintf(f, "            char buf[1024];\n");
+    fprintf(f, "            ssize_t n_read;\n");
+    fprintf(f, "            while ((n_read = read(errfd, buf, sizeof(buf))) > 0)\n");
+    fprintf(f, "                write(2, buf, n_read);\n");
     fprintf(f, "            failed++;\n");
     fprintf(f, "        }\n");
+    fprintf(f, "        close(errfd);\n");
+    fprintf(f, "        unlink(errpath);\n");
     fprintf(f, "    }\n\n");
     fprintf(f, "    printf(\"\\n%%d passed, %%d failed, %%d total\\n\", passed, failed, n);\n");
     fprintf(f, "    return failed > 0 ? 1 : 0;\n");
@@ -203,18 +216,66 @@ static int cmd_test(const char *concept) {
     return system(run);
 }
 
+static void remove_if_exists(const char *path) {
+    if (unlink(path) == 0) {
+        printf("  removed %s\n", path);
+    }
+}
+
+static int cmd_clean_concept(const char *concept) {
+    char path[MAX_PATH];
+
+    snprintf(path, sizeof(path), "%s/test_main.c", concept);
+    remove_if_exists(path);
+
+    snprintf(path, sizeof(path), "%s/test_%s", concept, concept);
+    remove_if_exists(path);
+
+    return 0;
+}
+
+/* Find all concept directories (contain a desc.txt) */
+static int cmd_clean_all(void) {
+    DIR *d = opendir(".");
+    if (!d) return 1;
+
+    struct dirent *ent;
+    while ((ent = readdir(d)) != NULL) {
+        if (ent->d_name[0] == '.') continue;
+        char desc[MAX_PATH];
+        snprintf(desc, sizeof(desc), "%s/desc.txt", ent->d_name);
+        struct stat st;
+        if (stat(desc, &st) == 0) {
+            cmd_clean_concept(ent->d_name);
+        }
+    }
+    closedir(d);
+    return 0;
+}
+
 static void usage(void) {
-    fprintf(stderr, "Usage: ./build test <concept>\n");
+    fprintf(stderr,
+        "Usage:\n"
+        "  ./build test <concept>    Build and run tests for a concept\n"
+        "  ./build clean [concept]   Remove generated files (all concepts if none given)\n");
 }
 
 int main(int argc, char **argv) {
-    if (argc < 3) {
+    if (argc < 2) {
         usage();
         return 1;
     }
 
     if (strcmp(argv[1], "test") == 0) {
+        if (argc < 3) { usage(); return 1; }
         return cmd_test(argv[2]) ? 1 : 0;
+    }
+
+    if (strcmp(argv[1], "clean") == 0) {
+        if (argc >= 3) {
+            return cmd_clean_concept(argv[2]);
+        }
+        return cmd_clean_all();
     }
 
     usage();
