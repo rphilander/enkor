@@ -73,4 +73,12 @@ size_t val_len(const Val *v);
 Val *val_list_get(const Val *v, size_t index);
 Val *val_map_get(const Val *map, const Val *key);
 
+/*
+ * Map iteration.
+ * val_map_entry returns the key and value at position `index` (0-based,
+ * iterates over occupied slots). Returns false if index >= val_len(map).
+ * Pointers are non-owning. Iteration order is unspecified.
+ */
+bool val_map_entry(const Val *map, size_t index, Val **key_out, Val **val_out);
+
 #endif

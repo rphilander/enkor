@@ -550,3 +550,22 @@ Val *val_map_get(const Val *map, const Val *key) {
         slot = (slot + 1) & (map->as.map.cap - 1);
     }
 }
+
+bool val_map_entry(const Val *map, size_t index, Val **key_out, Val **val_out) {
+    assert(map != NULL && map->type == VAL_MAP);
+    if (index >= map->as.map.len) return false;
+
+    /* skip empty slots to find the nth occupied entry */
+    size_t count = 0;
+    for (size_t i = 0; i < map->as.map.cap; i++) {
+        if (map->as.map.keys[i] != NULL) {
+            if (count == index) {
+                if (key_out) *key_out = map->as.map.keys[i];
+                if (val_out) *val_out = map->as.map.vals[i];
+                return true;
+            }
+            count++;
+        }
+    }
+    return false;
+}
