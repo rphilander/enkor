@@ -98,9 +98,20 @@ static inline const char *_test_type_name(ValType t) {
 #define ASSERT_TYPE(v, expected) do { \
     ValType _a = val_type(v), _e = (expected); \
     if (_a != _e) { \
-        fprintf(stderr, "FAIL: %s:%d: expected type %s, got %s\n", \
+        fprintf(stderr, "FAIL: %s:%d: expected type %s, got %s", \
                 __FILE__, __LINE__, _test_type_name(_e), \
                 _test_type_name(_a)); \
+        if (_a == VAL_ERROR) \
+            fprintf(stderr, " (\"%s\")", val_as_error(v)); \
+        fprintf(stderr, "\n"); \
+        abort(); \
+    } \
+} while(0)
+
+#define ASSERT_NOT_ERROR(v) do { \
+    if (val_type(v) == VAL_ERROR) { \
+        fprintf(stderr, "FAIL: %s:%d: unexpected error: %s\n", \
+                __FILE__, __LINE__, val_as_error(v)); \
         abort(); \
     } \
 } while(0)
