@@ -17,6 +17,7 @@ typedef enum {
     VAL_MAP,
     VAL_ERROR,
     VAL_BUILTIN,
+    VAL_EFFECT,
 } ValType;
 
 typedef struct Val Val;
@@ -36,6 +37,7 @@ Val *val_list(Val **items, size_t len);
 Val *val_map(Val **keys, Val **vals, size_t len);
 Val *val_error(const char *message);
 Val *val_builtin(const char *name, BuiltinFn fn);
+Val *val_effect(const char *name);
 
 /* Memory management */
 Val *val_retain(Val *v);
@@ -59,6 +61,7 @@ const char *val_as_keyword(const Val *v);
 const char *val_as_error(const Val *v);
 const char *val_as_builtin_name(const Val *v);
 BuiltinFn val_as_builtin(const Val *v);
+const char *val_as_effect(const Val *v);
 
 /*
  * Collections.

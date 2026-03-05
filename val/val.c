@@ -16,6 +16,7 @@ struct Val {
         struct { Val **items; size_t len; } list;
         struct { Val **keys; Val **vals; size_t cap; size_t len; } map;
         struct { char *name; BuiltinFn fn; } builtin;
+        struct { char *effect_name; } effect;
     } as;
 };
 
@@ -80,6 +81,12 @@ static uint64_t compute_hash(const Val *v) {
     case VAL_BUILTIN: {
         size_t nlen = strlen(v->as.builtin.name);
         uint64_t nh = hash_bytes(v->as.builtin.name, nlen);
+        h = hash_combine(h, nh);
+        break;
+    }
+    case VAL_EFFECT: {
+        size_t nlen = strlen(v->as.effect.effect_name);
+        uint64_t nh = hash_bytes(v->as.effect.effect_name, nlen);
         h = hash_combine(h, nh);
         break;
     }
@@ -201,6 +208,16 @@ Val *val_builtin(const char *name, BuiltinFn fn) {
     return v;
 }
 
+Val *val_effect(const char *name) {
+    Val *v = val_alloc(VAL_EFFECT);
+    size_t len = strlen(name);
+    v->as.effect.effect_name = malloc(len + 1);
+    assert(v->as.effect.effect_name != NULL);
+    memcpy(v->as.effect.effect_name, name, len + 1);
+    v->hash_val = compute_hash(v);
+    return v;
+}
+
 Val *val_list(Val **items, size_t len) {
     Val *v = val_alloc(VAL_LIST);
     if (len > 0) {
@@ -282,6 +299,9 @@ void val_release(Val *v) {
         break;
     case VAL_BUILTIN:
         free(v->as.builtin.name);
+        break;
+    case VAL_EFFECT:
+        free(v->as.effect.effect_name);
         break;
     case VAL_LIST:
         for (size_t i = 0; i < v->as.list.len; i++) {
@@ -401,6 +421,11 @@ int val_cmp(const Val *a, const Val *b) {
         return c < 0 ? -1 : c > 0 ? 1 : 0;
     }
 
+    case VAL_EFFECT: {
+        int c = strcmp(a->as.effect.effect_name, b->as.effect.effect_name);
+        return c < 0 ? -1 : c > 0 ? 1 : 0;
+    }
+
     case VAL_MAP: {
         if (a->as.map.len != b->as.map.len) {
             return a->as.map.len < b->as.map.len ? -1 : 1;
@@ -479,6 +504,11 @@ const char *val_as_builtin_name(const Val *v) {
 BuiltinFn val_as_builtin(const Val *v) {
     assert(v != NULL && v->type == VAL_BUILTIN);
     return v->as.builtin.fn;
+}
+
+const char *val_as_effect(const Val *v) {
+    assert(v != NULL && v->type == VAL_EFFECT);
+    return v->as.effect.effect_name;
 }
 
 /* --- Collections --- */

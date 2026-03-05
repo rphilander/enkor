@@ -90,6 +90,7 @@ static inline const char *_test_type_name(ValType t) {
     case VAL_MAP:     return "MAP";
     case VAL_ERROR:   return "ERROR";
     case VAL_BUILTIN: return "BUILTIN";
+    case VAL_EFFECT:  return "EFFECT";
     }
     return "???";
 }
